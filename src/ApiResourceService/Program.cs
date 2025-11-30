@@ -1,41 +1,98 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// =====================
+// Configuración de JWT
+// =====================
+var jwtSecret = builder.Configuration["Jwt:SecretKey"] ?? "super_dev_secret_1234567890";
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = key,
+            ClockSkew = TimeSpan.FromMinutes(1),
+        };
+    });
+
+// =====================
+// Autorización
+// =====================
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(
+        "InventoryRead",
+        policy => policy.RequireClaim("permission", "inventory.read")
+    );
+});
+
+// =====================
+// Controladores y Swagger
+// =====================
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "RBAC API", Version = "v1" });
+
+    // Configurar JWT Bearer
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
+        {
+            Name = "Authorization", // Nombre del header
+            Type = SecuritySchemeType.Http, // Tipo HTTP
+            Scheme = "bearer", // Es un Bearer token
+            BearerFormat = "JWT", // Formato JWT
+            In = ParameterLocation.Header, // Se envía en el header
+            Description = "Ingrese 'Bearer {token}' para autenticación",
+        }
+    );
+
+    // Requerir JWT en todos los endpoints
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer", // Debe coincidir con el SecurityDefinition
+                    },
+                },
+                Array.Empty<string>() // scopes, no aplican en JWT simple
+            },
+        }
+    );
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// =====================
+// Pipeline de middleware
+// =====================
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.MapOpenApi();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "RBAC API v1");
+    c.RoutePrefix = string.Empty; // Para que Swagger quede en la raíz: http://localhost:5001/
+});
 
-app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

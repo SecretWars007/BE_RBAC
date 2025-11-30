@@ -1,0 +1,64 @@
+@startuml
+title Diagrama Entidad-Relación - RBAC + MFA
+
+hide circle
+skinparam linetype ortho
+
+entity "User" as User {
+  * Id : UUID <<PK>>
+  --
+  UserName : string <<UQ>>
+  Email : string <<UQ>>
+  PasswordHash : byte[]
+  PasswordSalt : byte[]
+  IsMfaEnabled : bool
+  MfaSecret : string
+}
+
+entity "Role" as Role {
+  * Id : UUID <<PK>>
+  --
+  Name : string
+}
+
+entity "Module" as Module {
+  * Id : UUID <<PK>>
+  --
+  Key : string <<UQ>>
+  Name : string
+}
+
+entity "Permission" as Permission {
+  * Id : UUID <<PK>>
+  --
+  Key : string <<UQ>>
+  Description : string
+  ModuleId : UUID <<FK>>
+}
+
+entity "UserRole" as UserRole {
+  * UserId : UUID <<PK, FK>>
+  * RoleId : UUID <<PK, FK>>
+}
+
+entity "RolePermission" as RolePermission {
+  * RoleId : UUID <<PK, FK>>
+  * PermissionId : UUID <<PK, FK>>
+}
+
+' ===============================
+' Relaciones
+' ===============================
+
+' User 1..* UserRole *..1 Role
+User "1" }o--o{ "many" UserRole : tiene
+Role "1" }o--o{ "many" UserRole : asignado a
+
+' Role 1..* RolePermission *..1 Permission
+Role "1" }o--o{ "many" RolePermission : tiene
+Permission "1" }o--o{ "many" RolePermission : otorgado a
+
+' Module 1..* Permission
+Module "1" ||--o{ "many" Permission : agrupa
+
+@enduml
