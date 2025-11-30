@@ -12,13 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 // =====================
 // Configuración de PostgreSQL
 // =====================
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    var cs =
-        builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Host=localhost;Port=5432;Database=rbacdb;Username=rbac_user;Password=secret";
-    options.UseNpgsql(cs);
-});
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration["DATABASE_URL"]; // Render → env var
+
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
 // =====================
 // Servicios de aplicación
@@ -123,6 +121,14 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+}
+
+// aplicar migraciones auto al arrancar
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
 }
 
 // =====================
