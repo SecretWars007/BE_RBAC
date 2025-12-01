@@ -57,8 +57,8 @@ namespace ApiIdentityService.Infrastructure.Data
 
             // ⬇⬇⬇ AQUI: seed de roles por defecto ⬇⬇⬇
 
-            var adminRoleId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-            var userRoleId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+            var adminRoleId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+            var userRoleId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
             modelBuilder
                 .Entity<Role>()
