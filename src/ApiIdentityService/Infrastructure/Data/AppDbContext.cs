@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using ApiIdentityService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,6 +54,15 @@ namespace ApiIdentityService.Infrastructure.Data
             modelBuilder.Entity<Module>().HasIndex(m => m.Key).IsUnique();
 
             modelBuilder.Entity<Permission>().HasIndex(p => p.Key).IsUnique();
+
+            // ⬇⬇⬇ AQUI: seed de roles por defecto ⬇⬇⬇
+
+            var adminRoleId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+            var userRoleId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+
+            modelBuilder
+                .Entity<Role>()
+                .HasData(new Role { Name = "Admin" }, new Role { Name = "User" });
         }
     }
 }

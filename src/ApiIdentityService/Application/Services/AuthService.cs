@@ -25,26 +25,56 @@ namespace ApiIdentityService.Application.Services
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
         {
-            if (await _db.Users.AnyAsync(u => u.UserName == request.UserName))
+            // 1. Validar que no exista usuario con ese UserName O Email
+            bool userExists = await _db.Users.AnyAsync(u =>
+                u.UserName == request.UserName || u.Email == request.Email
+            );
+
+            if (userExists)
             {
-                return new AuthResponse("", false, false, "User already exists");
+                return new AuthResponse("", false, false, "User or email already exists");
             }
 
+            // 2. Hashear password
             var (hash, salt) = Security.PasswordHasher.HashPassword(request.Password);
 
             var user = new User
             {
+                Id = Guid.NewGuid(), // <-- solo si la BD no genera el GUID automáticamente
                 UserName = request.UserName,
                 Email = request.Email,
                 PasswordHash = hash,
                 PasswordSalt = salt,
             };
 
+            // 3. Buscar rol por defecto "User"
+            var defaultRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "User");
+            if (defaultRole is null)
+            {
+                return new AuthResponse(
+                    "",
+                    false,
+                    false,
+                    "Default role 'User' not found. Seed roles before registering users."
+                );
+            }
+
+            // 4. Agregar usuario al contexto
             _db.Users.Add(user);
+
+            // 5. Crear la relación UserRole (asignar rol al usuario)
+            _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = defaultRole.Id });
+
+            // 6. Guardar todo en BD
             await _db.SaveChangesAsync();
 
-            // Por simplicidad, sin roles por defecto
-            return new AuthResponse("", false, false, "Registered. Please login.");
+            // 7. Respuesta
+            return new AuthResponse(
+                "",
+                false,
+                false,
+                "Registered with default role 'User'. Please login."
+            );
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
